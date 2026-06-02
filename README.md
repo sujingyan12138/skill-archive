@@ -27,8 +27,7 @@
 | 个人偏好协作 | `personal-soul` |
 | Playwright浏览器自动化 | `playwright-cli` |
 | 项目复盘写作 | `project-retrospective-writer` |
-| Skill创建优化 | `skill-creator` |
-| 图片视觉桥接 | `vision-bridge` |
+| Skill创建 | `skill-creator` |
+| DeepSeek图片视觉桥接 | `vision-bridge` |
 | Windows空间瘦身 | `windows-space-slimming` |
-| Windows开始菜单固定 | `windows-start-menu-pinning` |
-
+| Windows让脚本固定在开始菜单 | `windows-start-menu-pinning` |
