@@ -1,0 +1,4 @@
+interface:
+  display_name: "Crawler Project Playbook"
+  short_description: "Build and ship robust crawler projects"
+  default_prompt: "Use $crawler-project-playbook to plan and implement a new authenticated crawler project with reusable guardrails."

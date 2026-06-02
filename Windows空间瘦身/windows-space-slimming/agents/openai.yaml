@@ -1,0 +1,4 @@
+interface:
+  display_name: "Windows Space Slimming"
+  short_description: "Guide Windows space cleanup migrations"
+  default_prompt: "Use $windows-space-slimming to assess and migrate large Windows user-data folders safely."

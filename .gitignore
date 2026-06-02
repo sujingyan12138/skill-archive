@@ -1,0 +1,21 @@
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python/runtime caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Node/runtime caches
+node_modules/
+.npm/
+.pnpm-store/
+
+# Logs/temp
+*.log
+*.tmp
+*.bak
+

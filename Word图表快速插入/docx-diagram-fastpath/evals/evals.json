@@ -1,0 +1,23 @@
+{
+  "skill_name": "docx-diagram-fastpath",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我的软件工程报告 3.2 活动图只有一张图，而且老师说没有文字说明。请根据文档内容帮我完善活动图部分并插入 Word。",
+      "expected_output": "Creates a copied DOCX, replaces only the 3.2 section, adds explanation text, split rationale, multiple activity diagrams with captions, and reports verification status.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "给这个 docx 里的活动图部分补图，处理要快一点，不要一直渲染重试。",
+      "expected_output": "Uses a fast path: inspect structure, plan diagram split, batch-generate images, insert once into a copy, perform structural checks, and render only once if available.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "组长问为什么活动图只有一个，你帮我把这里改得合理一点。",
+      "expected_output": "Explains why one diagram is insufficient, splits diagrams by use-case groups, adds concise Chinese descriptions before each diagram, and preserves nearby report style.",
+      "files": []
+    }
+  ]
+}
