@@ -26,6 +26,7 @@
 | NotebookLM自动化 | `notebooklm` |
 | 个人偏好协作 | `personal-soul` |
 | Playwright浏览器自动化 | `playwright-cli` |
+| 超星测验自动化 | `chaoxing-quiz` |
 | 项目复盘写作 | `project-retrospective-writer` |
 | Skill创建 | `skill-creator` |
 | DeepSeek图片视觉桥接 | `vision-bridge` |
