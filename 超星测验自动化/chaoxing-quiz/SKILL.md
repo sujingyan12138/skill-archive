@@ -1,6 +1,6 @@
 ---
 name: chaoxing-quiz
-description: Automate 超星学习通 (Chaoxing) quiz/exercise workflows with Playwright. Use this whenever the user shares a chaoxing.com/mooc1/mooc2 quiz, 随堂练习, 章节测验, 作业, or 考试 link and wants questions extracted, answers filled, submission verified, or the page/debugging workflow diagnosed.
+description: Automate 超星学习通 (Chaoxing) quiz/exercise workflows with Playwright. Use this whenever the user shares a chaoxing.com/mooc1/mooc2 quiz, 随堂练习, 章节测验, 作业, or 考试 link and wants questions extracted, answers filled, selected-answer verification, or the page/debugging workflow diagnosed. Leave final submission for the user to do manually.
 allowed-tools: Bash(playwright-cli:*)
 ---
 
@@ -12,8 +12,10 @@ Use this skill for Chaoxing/学习通 quiz pages. Prefer the shortest reliable p
 2. Determine which page version is loaded from frames and DOM selectors.
 3. Extract questions and options from the correct frame.
 4. Fill answers by clicking the page's real option elements.
-5. Verify selected answers from the DOM before submitting.
-6. Submit only when the user asked to complete/submit, then verify the post-submit state.
+5. Verify selected answers from the DOM.
+6. Stop before any final submit/交卷/确定 action and tell the user the page is ready for their manual submission.
+
+Default final action: do not click `提交`, `交卷`, or a submission confirmation dialog. The user wants to submit manually after answers are filled and verified.
 
 Do not assume all Chaoxing pages share one implementation. The main split is:
 
@@ -170,9 +172,9 @@ async page => {
 }
 ```
 
-### Verify before submit
+### Verify after fill
 
-Do not trust the click count. Re-read active/selected option state or the page's answer summary. On submitted Vue exercises, Chaoxing may show `我的答案：...`.
+Do not trust the click count. Re-read active/selected option state or the page's answer summary.
 
 ```javascript
 async page => {
@@ -187,24 +189,20 @@ async page => {
 }
 ```
 
-### Submit
+### Manual submit handoff
 
-For Vue 随堂练习, direct click is usually enough. There is normally no need to patch `confirm`, `workPop`, `validateTimeNew`, or AJAX.
+After verification, stop here. Do not click the submit button. Report the selected-answer summary and tell the user they can manually click the page's `提交` button if everything looks right.
 
 ```javascript
 async page => {
   const frame = page.frames().find(f => f.url().includes('answerQuestion') || f.name().includes('frame_content'));
-  await frame.evaluate(() => {
-    const btn = [...document.querySelectorAll('.submit-btn,.bottom-btn div,button')]
-      .find(el => el.innerText.trim() === '提交');
-    btn?.click();
+  return await frame.evaluate(() => {
+    const submitVisible = [...document.querySelectorAll('.submit-btn,.bottom-btn div,button')]
+      .some(el => el.offsetParent !== null && el.innerText.trim() === '提交');
+    return { status: 'ready_for_manual_submit', submitVisible };
   });
-  await page.waitForTimeout(1500);
-  return await frame.evaluate(() => document.body.innerText.includes('已提交') || document.body.innerText.includes('我的答案'));
 }
 ```
-
-Known success text: `已提交，待教师公布正确答案`. This means success even if no score appears immediately.
 
 ## Workflow B: 旧版章节测验/作业
 
@@ -312,7 +310,7 @@ async page => {
 }
 ```
 
-### Verify before submit
+### Verify after fill
 
 Old pages usually store answers in hidden inputs. Verify those, not just CSS classes.
 
@@ -326,66 +324,27 @@ async page => {
 }
 ```
 
-### Submit
+### Manual submit handoff
 
-Start simple:
-
-```javascript
-async page => {
-  const frame = page.frames().find(f => f.url().includes('doHomeWorkNew'));
-  await frame.locator('.btnSubmit').click();
-  await page.waitForTimeout(1000);
-  return await frame.evaluate(() => document.body.innerText.slice(-1000));
-}
-```
-
-If the custom dialog blocks submission, click the visible confirm button in the dialog. Only use function patching as a fallback when direct UI interaction is unreliable.
-
-In the verified old 章节测验 flow, this was sufficient:
-
-1. Click `.btnSubmit`.
-2. Wait for the visible alert dialog with text `确认提交？`.
-3. Click the visible button whose accessible name is `确定` and text is `提交`.
-4. Verify the final frame URL contains `selectWorkQuestionYiPiYue` or the page text contains `已完成` / `本次成绩`.
-
-Example:
-
-```powershell
-$env:SystemRoot='C:\Windows'; $env:WINDIR='C:\Windows'; playwright-cli -s=cx click <确定按钮ref>
-```
-
-Fallback patch for old pages:
+After hidden inputs match the expected answers, stop here. Do not click `.btnSubmit`, do not click the `确认提交？` dialog, and do not patch page functions to bypass dialogs. Report readiness for manual submission.
 
 ```javascript
 async page => {
   const frame = page.frames().find(f => f.url().includes('doHomeWorkNew'));
-  await frame.evaluate(() => {
-    if (typeof $ !== 'undefined' && $.ajaxSetup) $.ajaxSetup({ async: false });
-    window.confirm = () => true;
-    window.alert = () => {};
-    if (typeof validateTimeNew !== 'undefined') {
-      validateTimeNew = function(a, b, c, cb) { if (typeof cb === 'function') cb('', ''); };
-    }
-    if (typeof workPop !== 'undefined') {
-      workPop = function(tip, okText, cancelText, okCb) { if (typeof okCb === 'function') okCb(); };
-    }
-    if (typeof reqLimit !== 'undefined') reqLimit = 10;
-    if (typeof submitLock !== 'undefined') submitLock = 0;
-    if (typeof btnBlueSubmit === 'function') btnBlueSubmit();
+  return await frame.evaluate(() => {
+    const submitVisible = [...document.querySelectorAll('.btnSubmit,button,a')]
+      .some(el => el.offsetParent !== null && /提交|交卷/.test(el.innerText || el.value || ''));
+    return { status: 'ready_for_manual_submit', submitVisible };
   });
-  await page.waitForTimeout(3000);
-  return await frame.evaluate(() => document.body.innerText.slice(-1500));
 }
 ```
-
-Treat this patch as old-page emergency tooling, not the default path. It is unnecessary for the Vue 随堂练习 pages that submit correctly with a button click.
 
 ## Decision Notes From Local Runs
 
-- The successful 随堂练习 run used Chrome attach plus a Vue-style `.question-item` page. Answers were selected by clicking options in `frame.evaluate`, then verified by reading the selected/my-answer state. Submit changed the page to `已提交，待教师公布正确答案`.
+- The successful 随堂练习 run used Chrome attach plus a Vue-style `.question-item` page. Answers were selected by clicking options in `frame.evaluate`, then verified by reading the selected/my-answer state. Current workflow stops after this verification so the user can submit manually.
 - The tested 章节测验 link used old nested frames and `doHomeWorkNew`. It had 20 `.TiMu.newTiMu` questions, 100 `.font-cxsecret` nodes, hidden answer inputs, and old submit functions (`btnBlueSubmit`, `workPop`, `validateTimeNew`).
-- In the verified Android 章节测验 closed loop, `font_decoder_full.js` decoded the old page successfully (`decoded 89 characters, replaced in 100 elements`). Hidden inputs matched all 20 selected answers before submission, direct `.btnSubmit` opened a visible custom `确认提交？` dialog, clicking the visible `确定` button completed the work, and the result page showed `已完成` / `本次成绩100分`.
-- Therefore: keep both workflows, but do not make the old submit patch/font decoder mandatory. Detect first, then use the simplest branch.
+- In the verified Android 章节测验 closed loop, `font_decoder_full.js` decoded the old page successfully (`decoded 89 characters, replaced in 100 elements`). Hidden inputs matched all 20 selected answers before submission. Current workflow stops there and leaves `.btnSubmit` / confirmation dialogs untouched.
+- Therefore: keep both fill-and-verify workflows, but leave final submission to the user.
 
 ## Common Pitfalls
 
@@ -396,12 +355,11 @@ Treat this patch as old-page emergency tooling, not the default path. It is unne
 - **Old pages do use hidden inputs**: after clicking `.Zy_ulTop li`, verify `input[id^=answer]`.
 - **DOM text may be garbled on old pages**: `font-cxsecret` affects extraction, not the visual browser rendering.
 - **Image downloads may fail with 403**: screenshot the rendered image element in the logged-in browser.
-- **Submit result wording differs**: 随堂练习 may show `已提交，待教师公布正确答案`; old work pages may show score/status/navigation.
-- **Do not submit blindly**: after filling, compare expected answers against DOM-selected/hidden values. Submit after the user requested completion or after explicit confirmation if the prompt only asked to inspect.
+- **Manual final submission**: after filling, compare expected answers against DOM-selected/hidden values, then stop and tell the user the page is ready. Do not click final submit/交卷/确认 controls.
 
 ## Reference Scripts
 
-- `references/chaoxing_quiz_answer.js`: old-page answer script template. It contains hardcoded sample answers, defaults to `AUTO_SUBMIT = false`, and should be edited per quiz before use.
+- `references/chaoxing_quiz_answer.js`: old-page answer script template. It contains hardcoded sample answers, fills and verifies only, and should be edited per quiz before use.
 - `references/font_decoder_full.js`: old-page `font-cxsecret` decoder using Typr.js and OCS font table.
 - `references/font_decoder.js`: notes and helpers for font/image handling.
 - `references/typr_core.js`: bundled Typr.js parser used by the decoder.

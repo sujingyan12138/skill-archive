@@ -6,7 +6,7 @@
  * 1. 自动穿透嵌套 iframe 定位题目
  * 2. 读取题目内容（含 font-cxsecret 字体解密）
  * 3. 根据预设答案选择选项
- * 4. 自动提交（绕过 AJAX 验证和自定义弹窗）
+ * 4. 返回校验结果，停在提交前，由用户手动提交
  */
 
 // ===== 答案配置 =====
@@ -34,10 +34,6 @@ const ANSWERS = {
   18: ['A','B','C'],        // Q19
   19: ['A','B','D']         // Q20
 };
-
-// 安全默认值：只填答案并返回校验结果，不自动提交。
-// 确认 ANSWERS 已按当前测验改好，且用户明确要求提交后，再改为 true。
-const AUTO_SUBMIT = false;
 
 async page => {
   // ===== 第1步: 定位答题 iframe =====
@@ -140,73 +136,18 @@ async page => {
     });
   });
 
-  if (!AUTO_SUBMIT) {
-    return JSON.stringify({
-      status: 'filled_not_submitted',
-      note: 'AUTO_SUBMIT is false. Verify selectedValues, then set AUTO_SUBMIT=true only if the user asked to submit.',
-      questionsFound: quizInfo.length,
-      optionsClicked: clickResult,
-      selectedValues
-    });
-  }
-  
-  // ===== 第5步: 提交 =====
-  // 超星提交流程: btnBlueSubmit() → validateTimeNew(AJAX) → toadd() → workPop(自定义弹窗) → submitCheckTimes() → form1submit() → confirmSubmitWork(AJAX)
-  
-  await frame.evaluate(() => {
-    // Patch: 让 AJAX 同步执行
-    if (typeof $ !== 'undefined' && $.ajaxSetup) {
-      $.ajaxSetup({ async: false });
-    }
-    
-    // Patch: 覆盖原生弹窗
-    window.confirm = () => true;
-    window.alert = () => {};
-    
-    // Patch: 跳过 validateTimeNew 的 AJAX 调用
-    if (typeof validateTimeNew !== 'undefined') {
-      validateTimeNew = function(a, b, c, cb) {
-        if (typeof cb === 'function') cb('', '');
-      };
-    }
-    
-    // Patch: 跳过 workPop 自定义弹窗，直接提交
-    if (typeof workPop !== 'undefined') {
-      workPop = function(tip, okText, cancelText, okCb, cancelCb) {
-        if (typeof okCb === 'function') okCb();
-      };
-    }
-    
-    // Patch: 重置计数器
-    if (typeof reqLimit !== 'undefined') reqLimit = 10;
-    if (typeof submitLock !== 'undefined') submitLock = 0;
-    
-    // 调用提交
-    try {
-      if (typeof btnBlueSubmit === 'function') {
-        btnBlueSubmit();
-      }
-    } catch(e) {
-      console.log('Submit error:', e.message);
-    }
+  const handoff = await frame.evaluate(() => {
+    const submitVisible = Array.from(document.querySelectorAll('.btnSubmit,button,a'))
+      .some(el => el.offsetParent !== null && /提交|交卷/.test(el.innerText || el.value || ''));
+    return { submitVisible };
   });
-  
-  // 等待提交完成
-  await page.waitForTimeout(3000);
-  
-  // 检查结果
-  const result = await frame.evaluate(() => {
-    const text = document.body.innerText || '';
-    const failed = text.includes('未达到及格线');
-    const success = text.includes('得分') || text.includes('成绩') || text.includes('交卷成功');
-    const pending = text.includes('待完成');
-    return { failed, success, pending };
-  });
-  
+
   return JSON.stringify({
-    status: result.success ? 'submitted' : result.failed ? 'failed_passing' : result.pending ? 'still_pending' : 'unknown',
+    status: 'filled_not_submitted',
+    note: 'Answers were filled and verified. Final submission is intentionally left for the user to click manually.',
     questionsFound: quizInfo.length,
     optionsClicked: clickResult,
-    result
+    selectedValues,
+    handoff
   });
 }
