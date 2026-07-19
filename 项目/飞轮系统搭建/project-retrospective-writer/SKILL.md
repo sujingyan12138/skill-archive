@@ -1,6 +1,6 @@
 ---
 name: project-retrospective-writer
-description: Use when the user wants to write a project experience note into 学习/经历 and also create or update the same-day daily summary in 生活/复盘 after finishing a project with AI. Trigger on “写进经历”, “项目复盘”, “飞轮收尾”, “把这次项目经历写进 Obsidian”, “总结今天做项目的过程”, or any request to archive a completed AI-collaboration project plus a daily summary.
+description: Use when the user wants to archive a completed or staged AI-collaboration project as one durable project experience note in 学习/经历. Trigger on “写进经历”, “项目复盘”, “飞轮收尾”, “把这次项目经历写进 Obsidian”, or “总结今天做项目的过程”. Do not generate or update 生活/复盘 from project records; that directory is reserved for the user's own daily reflections.
 tags:
   - 工具
   - 复盘
@@ -11,10 +11,7 @@ tags:
 
 ## Purpose
 
-把“一次和 AI 完成项目后的聊天成果”稳定落成两类资产：
-
-1. `学习/经历/` 中的一篇项目经历
-2. `生活/复盘/` 中当天的每日总结
+把“一次和 AI 完成项目后的聊天成果”稳定落成 `学习/经历/` 中的一篇项目经历。
 
 它适合在项目阶段性完成、告一段落、已经能说清“做成了什么”和“学到了什么”时使用。
 
@@ -24,9 +21,8 @@ tags:
 2. `CLAUDE.md`
 3. `学习/经历/经历模板.md`
 4. `学习/经历/index.md`
-5. 先按项目名、仓库名、产品名和核心关键词检索 `学习/经历/` 与 `生活/复盘/`，确认是否已有同项目文件
-6. 当天已有的 `生活/复盘/* YYYY-MM-DD.md`，如果存在
-7. 与当前项目直接相关的材料：
+5. 先按项目名、仓库名、产品名和核心关键词检索 `学习/经历/`，确认是否已有同项目文件
+6. 与当前项目直接相关的材料：
    - 项目仓库中的关键文件
    - 本次对话里产出的关键结论
    - 如有需要，再读 `outputs/`、`wiki/`、`inspection/` 中相关页面
@@ -49,14 +45,12 @@ tags:
 - 尽量链接到仓库内真实文件，而不是空泛描述
 - 尽量沿用 `学习/经历/经历模板.md` 的结构，但允许按项目实际情况做增删
 
-### B. 每日总结
+### B. 个人感悟边界
 
-- 目标目录：`生活/复盘/`
-- 文件名格式：`主题关键词 YYYY-MM-DD.md`，主题关键词在前，日期在后
-- 如果当天文件已存在：先用 `* YYYY-MM-DD.md` 找到并更新，而不是重复新建
-- 如果内容属于已经存在的项目：优先更新该项目在 `生活/复盘/` 的主复盘文件，在文件内按日期或阶段追加；不要仅因为日期不同而创建第二个同项目文件。
-- 每日总结要站在“这一天整体推进了什么”的角度，不要只是项目摘要
-- 如果当天做了多个项目，当前项目应写进“今天做成了什么 / 今天形成的方法 / 最值得带走的一句提醒”等部分
+- 不根据项目记录自动创建或更新 `生活/复盘/`。
+- `生活/复盘/` 只保留用户亲自写下的 `YYYY-MM-DD 今日感悟.md` 和固定的 `复盘.md`。
+- 如果用户同时提供了自己的原始感悟并明确要求保存，先完整保留用户原文，再按要求整理；不要把 AI 根据项目推导出的内容伪装成用户感悟。
+- 如果用户只想要一份简短的 AI 项目摘要，可另存到 `学习/速看/`，但不要替代完整经历文，也不要写入个人感悟区。
 
 ## Writing Priorities
 
@@ -76,14 +70,13 @@ tags:
 
 1. 先读本次项目上下文和仓库里相关文件
 2. 判断这次项目最合适的标题和关键历程
-3. 先检索 `学习/经历/` 和 `生活/复盘/` 是否已有同项目文件
+3. 先检索 `学习/经历/` 是否已有同项目文件
 4. 写入或更新 `学习/经历/` 项目经历；同项目已有文件时追加到原文件
 5. 更新 `学习/经历/index.md`，把新经历挂进去，或把旧链接修正到项目主文件
-6. 新建或更新 `生活/复盘/主题关键词 YYYY-MM-DD.md`；同项目已有主复盘时追加到原文件
-7. 如果这次沉淀了长期可复用的方法，再建议是否补到 `SOUL.md` / `CLAUDE.md`
+6. 如果这次沉淀了长期可复用的方法，再建议是否补到 `SOUL.md` / `CLAUDE.md`
 
 ## Good Trigger Examples
 
-- “请你把这次做项目的经历写进我的 Obsidian 仓库里……写完之后再写一份每日总结”
-- “帮我把这轮和 AI 协作完成项目的过程沉淀到学习/经历和生活/复盘”
-- “请把今天这个项目写成经历，并更新今天的每日总结”
+- “请你把这次做项目的经历写进我的 Obsidian 仓库里”
+- “帮我把这轮和 AI 协作完成项目的过程沉淀到学习/经历”
+- “请把今天这个项目写成经历，保留踩坑和关键转折”
