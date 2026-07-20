@@ -1,6 +1,6 @@
 ---
 name: llm-ingest
-description: "This skill should be used when the user wants to add new documents to a Karpathy-style LLM Wiki knowledge base. It implements the Ingest phase of the Ingest/Query/Lint cycle: reading raw source files, compiling them into structured wiki Markdown pages, updating the index, and appending to the operation log. Key features: Raw storage rule - always store the complete original text in raw/ (never summarize), translated to Chinese. Use this skill when the user says things like 摄取这篇文章, 把这个加入知识库, ingest this paper, 更新我的 wiki, 处理 raw 目录里的新文件, or asks to build or maintain a personal knowledge base powered by LLMs. Also use when initializing a new knowledge base directory structure."
+description: "Compile sources that are already archived in raw/ into this Karpathy-style LLM Wiki: extract concepts and entities, update structured wiki pages and wiki/index.md, and append the ingest log. Use when the user says 摄取这份 raw, 消化这篇原始资料, 更新 wiki, 把 raw 里的新文件编译进知识库, or explicitly wants the raw -> wiki stage. Do not use for raw-only requests such as 入库到 raw, 保存原始资料, or 这个链接以后要提问; those belong to archive-to-raw."
 ---
 
 # LLM Wiki 摄取技能（llm-ingest）
@@ -11,7 +11,7 @@ description: "This skill should be used when the user wants to add new documents
 
 ## 核心定位
 
-**摄取（Ingest）= 将一份新来源编译进 wiki，建立关联、更新索引、追加日志。**
+**摄取（Ingest）= 将已经位于 `raw/` 的来源编译进 wiki，建立关联、更新索引、追加日志。**
 
 这是 LLM Wiki 三大核心操作（Ingest / Query / Lint）中的第一环，也是知识积累的起点。
 
@@ -19,11 +19,13 @@ description: "This skill should be used when the user wants to add new documents
 
 ## 触发场景
 
-- 用户说「把这篇文章/论文/笔记加入我的知识库」
+- 用户说「摄取这份 raw」「消化这篇原始资料」
 - 用户说「处理 raw/ 里的新文件」
 - 用户说「ingest 这个来源」
 - 用户希望初始化一个新的 LLM Wiki 知识库
 - 用户希望了解哪些文件还没有被处理
+
+如果用户只说“入库到 raw”“保存这个链接以后提问”，使用 `archive-to-raw`，不要在本技能中顺便更新 wiki。
 
 ---
 
@@ -77,12 +79,11 @@ python <skill_scripts_dir>/ingest.py status <kb_root>
 - 对于图片：先读文本部分，再单独读取图片文件获取视觉信息
 - 识别文件类型（文章/论文/笔记/数据/代码）以决定提取策略
 
-### 第 3 步：将完整原文存入 raw/（一律翻译为中文）
+### 第 3 步：确认 raw 来源可用
 
-**这是核心原则：raw/ 目录存放的是完整原始内容，不做任何摘要压缩。**
-
-- 读取原始来源文件后，将完整内容**翻译为中文**，存入 `raw/` 对应分类目录
-- raw/ 中的文件**只写一次**，LLM 永不修改
+- 来源必须已经位于 `raw/articles/`、`raw/papers/`、`raw/notes/` 或 `raw/videos/`。
+- raw 必须是完整、可追溯的来源；如果只有标题、摘要或失效链接，先停止摄取并用 `archive-to-raw` 补齐来源。
+- 摄取阶段把 raw 当作只读输入，不重写、移动或覆盖原始资料。
 
 ### 第 4 步：提取 + 编译到 wiki
 
