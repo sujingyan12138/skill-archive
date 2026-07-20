@@ -85,6 +85,22 @@ python ".codex/skills/archive-to-raw/scripts/raw_intake.py" verify --repo . --pa
 - 完整 AI 对话优先保持用户提供的文件名与原始顺序；不要擅自改写聊天内容。
 - 重名时不覆盖。相同来源 URL 或相同哈希已经存在时，复用现有来源并补索引；不同内容使用脚本建议的递增名称。
 
+## 网页提取的已验证路径
+
+1. 先尝试网站专用 API/CLI 或普通只读请求；成功时直接取得正文。
+2. 普通请求被 403、登录状态或动态渲染拦住时，改用现有浏览器会话，不要反复撞同一个接口。
+3. 在页面中按来源稳定标识定位唯一主容器。例如知乎回答应核对 `data-zop` 中的 `itemId`、作者和问题标题，不能直接抓整个页面。
+4. 只导出该主容器的 HTML，再运行：
+
+```powershell
+python ".codex/skills/archive-to-raw/scripts/webpage_to_raw.py" `
+  --repo . --html-file "<临时正文.html>" --title "<标题>" `
+  --url "<原始URL>" --author "<作者>" --published-at "<发布时间>"
+```
+
+5. 脚本会识别 `data-original`、`data-actualsrc`、`data-src` 等懒加载图片地址，把配图下载到 `raw/assets/`，再生成 Markdown 和更新两个索引。
+6. 验收时检查正文首尾、章节数量、字符数、配图数、来源 URL、查重命中和索引命中。文件存在不等于内容完整。
+
 ## 视频与视频博客
 
 视频为了以后能直接提问，不能只保存 URL 或 mp4：
