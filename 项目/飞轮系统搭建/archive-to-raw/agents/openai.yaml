@@ -1,0 +1,4 @@
+interface:
+  display_name: "Raw 原始资料归档"
+  short_description: "把网页链接、本地文件和视频完整归档到 raw 并自动更新索引"
+  default_prompt: "Use $archive-to-raw to archive this link or local file into the correct raw area without updating wiki."
