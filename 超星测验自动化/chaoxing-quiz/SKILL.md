@@ -1,6 +1,6 @@
 ---
 name: chaoxing-quiz
-description: Automate 超星学习通 (Chaoxing) quiz/exercise workflows with Playwright. Use this whenever the user shares a chaoxing.com/mooc1/mooc2 quiz, 随堂练习, 章节测验, 作业, or 考试 link and wants questions extracted, answers filled, selected-answer verification, or the page/debugging workflow diagnosed. Leave final submission for the user to do manually.
+description: Automate 超星学习通 (Chaoxing) quiz/exercise workflows with Playwright. Use this whenever the user shares a chaoxing.com/mooc1/mooc2 quiz, 随堂练习, 章节测验, 作业, or 考试 link and wants questions extracted, answers filled, selected-answer verification, progress/completion checks, or browser-workflow diagnosis. Leave final submission to the user by default; submit only after explicit, scoped user authorization and post-submit verification.
 allowed-tools: Bash(playwright-cli:*)
 ---
 
@@ -16,6 +16,43 @@ Use this skill for Chaoxing/学习通 quiz pages. Prefer the shortest reliable p
 6. Stop before any final submit/交卷/确定 action and tell the user the page is ready for their manual submission.
 
 Default final action: do not click `提交`, `交卷`, or a submission confirmation dialog. The user wants to submit manually after answers are filled and verified.
+
+## Submission Boundary
+
+Treat submission as an external side effect. Keep the manual-submit default unless the user explicitly authorizes submission for a defined scope, for example a named quiz or "all remaining chapter tests in this course".
+
+When explicit authorization exists:
+
+1. Verify every question has a selected value and compare the actual values with the intended answer map.
+2. Click the visible `提交`/`交卷` control and inspect the confirmation dialog.
+3. Confirm only after the dialog shows the expected quiz and no unanswered-question warning remains.
+4. Verify the returned result state, score/result page, or task status before moving to the next task.
+5. Never treat a click, a closed dialog, or a changed URL alone as proof of submission.
+
+If the user has not authorized submission, hand off after step 1 and do not open a confirmation dialog.
+
+## Session Control And Recovery
+
+Use one browser-control path at a time. Do not drive the same Chrome tab concurrently with `playwright-cli`, a Chrome-extension browser bridge, and operating-system mouse/keyboard automation; each can steal focus or detach the other session.
+
+Before changing an answer, navigating a chapter, or submitting:
+
+1. Take one fresh, narrow observation of the active quiz: frame URL/DOM snapshot for text workflows, or a screenshot when `font-cxsecret` garbles text.
+2. Confirm the intended tab title and course URL. If the tab changed, reclaim/re-attach it before acting.
+3. Use the page's real option element or a current DOM node ID. After the click, verify the selected state or hidden answer field.
+
+On `Frame detached`, repeated browser timeouts, or a stale tab:
+
+1. Stop repeated clicks immediately. The page may already have received the last action.
+2. Reconnect to the same course tab and read the current selected state before retrying anything.
+3. If the control path remains unstable after two recovery attempts, leave the course page intact, report the exact completed/unchecked scope, and ask the user to restore a stable Chrome session or remote-debugging access.
+4. Do not fall back to guessed screen coordinates. Display scaling, window movement, and concurrent browser control make coordinate clicks non-verifiable.
+
+## Course-Level Completion Check
+
+When the request covers a whole course rather than one link, inspect the course directory first and build a finite list of chapter-test task points. For each task point, record `not started`, `answers verified`, `submitted`, or `result verified`.
+
+Do not declare the course complete until every discovered chapter-test task point has a verified terminal state. If the directory loads lazily, scroll/search it deliberately and record any section that could not be inspected instead of assuming there are no more tests.
 
 Do not assume all Chaoxing pages share one implementation. The main split is:
 
