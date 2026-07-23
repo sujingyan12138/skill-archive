@@ -15,6 +15,8 @@ Use this skill for Chaoxing/学习通 quiz pages. Prefer the shortest reliable p
 5. Verify selected answers from the DOM.
 6. Stop before any final submit/交卷/确定 action and tell the user the page is ready for their manual submission.
 
+For a whole-course request, execution is a stateful workflow, not a background wait. Report a concrete checkpoint at least every 30 seconds: active chapter, discovered quiz count, verified/submitted count, and whether the current delay is attaching, loading, observing, filling, or verifying. A command with no durable page-state change is diagnostic work, not progress.
+
 Default final action: do not click `提交`, `交卷`, or a submission confirmation dialog. The user wants to submit manually after answers are filled and verified.
 
 ## Submission Boundary
@@ -35,6 +37,30 @@ If the user has not authorized submission, hand off after step 1 and do not open
 
 Use one browser-control path at a time. Do not drive the same Chrome tab concurrently with `playwright-cli`, a Chrome-extension browser bridge, and operating-system mouse/keyboard automation; each can steal focus or detach the other session.
 
+### Preferred Control Path And Time Budget
+
+For a user-owned logged-in Chrome, prefer the Playwright Chrome extension:
+
+```powershell
+playwright-cli -s=cx attach --extension=chrome
+playwright-cli -s=cx tab-list
+playwright-cli -s=cx snapshot --filename=initial.yml
+```
+
+Use CDP only when the extension cannot be installed or attached:
+
+```powershell
+playwright-cli -s=cx attach --cdp=chrome
+```
+
+Set a short budget for each control phase. Attach, tab discovery, and the first snapshot should each complete within roughly 30 seconds. If the same phase times out twice, stop retrying it, report the exact phase and last verified state, then switch once to the other supported path. Do not leave the user with a long silent sequence of retries.
+
+After an attach succeeds, keep the session name and the current course URL in the progress record. Detach at the end:
+
+```powershell
+playwright-cli -s=cx detach
+```
+
 Before changing an answer, navigating a chapter, or submitting:
 
 1. Take one fresh, narrow observation of the active quiz: frame URL/DOM snapshot for text workflows, or a screenshot when `font-cxsecret` garbles text.
@@ -45,14 +71,27 @@ On `Frame detached`, repeated browser timeouts, or a stale tab:
 
 1. Stop repeated clicks immediately. The page may already have received the last action.
 2. Reconnect to the same course tab and read the current selected state before retrying anything.
-3. If the control path remains unstable after two recovery attempts, leave the course page intact, report the exact completed/unchecked scope, and ask the user to restore a stable Chrome session or remote-debugging access.
+3. If the control path remains unstable after two recovery attempts, leave the course page intact, report the exact completed/unchecked scope, the failed phase, and the elapsed retry budget; then ask the user to restore a stable Chrome session or install/enable the extension.
 4. Do not fall back to guessed screen coordinates. Display scaling, window movement, and concurrent browser control make coordinate clicks non-verifiable.
 
 ## Course-Level Completion Check
 
-When the request covers a whole course rather than one link, inspect the course directory first and build a finite list of chapter-test task points. For each task point, record `not started`, `answers verified`, `submitted`, or `result verified`.
+When the request covers a whole course rather than one link, inspect the course directory first and build a finite chapter checklist. For every chapter, record either `no quiz card found` or a quiz state: `not started`, `answers verified`, `submitted`, or `result verified`. A yellow/orange task counter only proves that some task exists; it does not prove that the chapter contains a quiz.
 
 Do not declare the course complete until every discovered chapter-test task point has a verified terminal state. If the directory loads lazily, scroll/search it deliberately and record any section that could not be inspected instead of assuming there are no more tests.
+
+### Fast Course Run Protocol
+
+Use this order to avoid spending most of the session on unstable navigation or normal learning tasks:
+
+1. Take one directory snapshot and list all chapters before answering. Preserve the checklist in the task notes or named snapshots.
+2. Open a chapter and save a narrow snapshot. Search only for `章节测验`, `题量:`, `提交`, and completion state. If none are present, mark `no quiz card found` and move on without playing video, downloading resources, or clicking ordinary tasks.
+3. When a quiz card is present, screenshot the card once. `font-cxsecret` often makes snapshot text unreadable while the rendered image is clear.
+4. Resolve answers from the course text first; use rendered screenshots for ambiguous text/images. Do not infer a full answer map from garbled DOM strings alone.
+5. Fill through real controls. For a multi-question card, a single `run-code` action may click all current DOM options, but it must return the question number and selected letter for every click. Then take one verification snapshot and require one selected value per question.
+6. Submit only when authorized. Read the confirmation dialog, then the result page. Record the exact score and whether retry/rework is actually offered.
+
+Do not count a chapter as completed merely because the sidebar count changed. Require `任务点已完成`, an explicit result state, or an equivalent verified terminal signal.
 
 Do not assume all Chaoxing pages share one implementation. The main split is:
 
@@ -75,7 +114,7 @@ Use the same prefix for every `playwright-cli` command in the current Codex proc
 
 ### Attach to the user's Chrome
 
-Prefer attaching to the existing Chrome so Chaoxing login state and rendered resources are available.
+Prefer the extension attach above for an existing logged-in Chrome. It keeps the user-visible session and avoids relying on remote-debugging availability. Use this CDP command only as the fallback when the extension path is unavailable:
 
 ```powershell
 $env:SystemRoot='C:\Windows'; $env:WINDIR='C:\Windows'; playwright-cli -s=cx attach --cdp=chrome
@@ -299,6 +338,8 @@ Practical options, in order:
 2. If many questions need text extraction, run the bundled decoder or improve it first.
 3. If only option letters are needed because the answer key is known, skip decoding.
 
+Do not spend a long session reverse-engineering the font before testing a rendered element screenshot. One screenshot of the actual quiz card is the fast default; font decoding is justified only when many answers cannot be resolved visually or from course text.
+
 Bundled files:
 
 - `references/font_decoder_full.js`
@@ -393,6 +434,9 @@ async page => {
 - **DOM text may be garbled on old pages**: `font-cxsecret` affects extraction, not the visual browser rendering.
 - **Image downloads may fail with 403**: screenshot the rendered image element in the logged-in browser.
 - **Manual final submission**: after filling, compare expected answers against DOM-selected/hidden values, then stop and tell the user the page is ready. Do not click final submit/交卷/确认 controls.
+- **Slow runs with no visible result**: classify every wait as `attach`, `load`, `observe`, `fill`, `submit`, or `verify`. After two failures in the same classification, change control path or stop with a precise handoff; do not convert a timeout into silent repeated attempts.
+- **Stale snapshot refs**: Chaoxing replaces iframe content and generated references after navigation. Re-snapshot after each chapter change; never reuse an old ref just because its text label looks familiar.
+- **Low score without retake**: treat `任务点已完成`, score, and retry availability as three distinct facts. Report the exact score and lack of retry instead of claiming the quiz is fully correct.
 
 ## Reference Scripts
 
