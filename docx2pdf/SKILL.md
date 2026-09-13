@@ -1,6 +1,6 @@
 ---
 name: docx2pdf
-description: Convert Word documents (.docx/.doc) to PDF on Windows using local MS Word via COM automation, with zero-loss formatting fidelity. Use this skill whenever the user asks to convert a Word document (or a folder of documents) to PDF, export a resume/report as PDF, or batch-convert docx files. Triggers include "转成pdf", "导出pdf", "convert to pdf", and any docx-to-PDF request.
+description: Convert Word documents (.docx/.doc/.docm) to PDF on Windows using local MS Word via COM automation, with zero-loss formatting fidelity. Use this skill whenever the user asks to convert a Word document (or a folder of documents) to PDF, export a resume/report as PDF, or batch-convert docx files. Triggers include "转成pdf", "导出pdf", "convert to pdf", and any docx-to-PDF request.
 agent_created: true
 ---
 
@@ -8,11 +8,13 @@ agent_created: true
 
 ## Overview
 
-Convert one or more Word documents (.docx/.doc) to PDF on Windows by driving the locally installed MS Word through COM automation (`Word.Application` → `Documents.Open` → `SaveAs2(path, 17)`). Because the conversion engine is Word itself, fonts, pagination, images, and layout are identical to what the user sees in Word — no online service, no extra software, no font-substitution risk.
+Convert one or more Word documents to PDF on Windows by driving the locally installed MS Word through COM automation (`Word.Application` → `Documents.Open` → `SaveAs2(path, 17)`). Because the conversion engine is Word itself, fonts, pagination, images, and layout are identical to what the user sees in Word — no online service, no extra software, no font-substitution risk.
+
+The conversion logic lives in a **tested script**: `scripts/convert.ps1`. Invoke that script; do not paste inline conversion code.
 
 ## When to Use
 
-- User asks to convert a .docx/.doc file (or several) to PDF.
+- User asks to convert a .docx/.doc/.docm file (or several) to PDF.
 - User asks to batch-convert all Word documents in a folder.
 - User asks for a PDF version of a resume, report, or any document originally in Word format.
 
@@ -22,97 +24,62 @@ Convert one or more Word documents (.docx/.doc) to PDF on Windows by driving the
 - Content editing of the docx (that belongs to `tencent-docs-routing` / local office edit skills). Pure docx→pdf format conversion does NOT need `tencent-docs-routing`.
 - Machines without MS Word installed (see Troubleshooting).
 
+## Primary Workflow (agent) — invoke the script
+
+```powershell
+& "C:\Users\Chen\.workbuddy\skills\docx2pdf\scripts\convert.ps1" "<source-path>"
+```
+
+That single line converts the file and writes the PDF **next to the source** (the behavior users usually want). Variants:
+
+```powershell
+# several files
+& "...\convert.ps1" "D:\a\1.docx" "D:\b\2.docx"
+
+# a whole folder (non-recursive) or a glob
+& "...\convert.ps1" "D:\docs"
+& "...\convert.ps1" "D:\docs\*.docx"
+
+# custom output directory
+& "...\convert.ps1" "D:\docs\*.docx" -OutputDir "D:\out"
+```
+
+Script behavior: `.docx` / `.docm` / `.doc`; PDFs next to source by default, into `-OutputDir` if given (created if missing); existing PDFs overwritten; Word lock files (`~$...`) and non-Word files skipped; nonexistent inputs reported and skipped. Status is printed as `OK:` / `FAIL:` lines plus `Done. OK=x FAIL=y`, and `$script:ConvertResult` is `'success'` or `'error'`.
+
+### Verify (required — the PowerShell tool does not display stdout)
+
+List the output location with the Bash tool and confirm each PDF exists with a fresh mtime and plausible size:
+
+```bash
+stat -c '%y %n' "<output-dir>"/*
+```
+
+Then present the PDF(s) with the file presentation tool. If a run produced no PDF, check for a zombie Word process (see below) and re-run.
+
 ## Critical Environment Constraints (all empirically tested 2026-09-13)
 
-Inside the agent's PowerShell tool, the sandbox silently kills a command (exit code 1, no output, no error, subsequent statements never run) when it contains any of:
+1. **The literal token for PowerShell's path-joining cmdlet (the one that combines a directory and a child name) must NEVER appear in a command or in code the agent executes.** The sandbox silently kills any command whose executed code contains it: exit code 1, no output, no error message, subsequent statements never run. In `convert.ps1` the token does not appear anywhere — not even in comments — and paths are built with string interpolation (`"$OutputDir\$base.pdf"`). Keep it that way. This single rule caused every mysterious failure during development.
+2. **`cmd.exe` cannot be launched from the PowerShell tool** (hard policy, unaffected by the sandbox flag) — so the agent cannot run `convert.bat`; that file is for the user only.
+3. **Bare `powershell` is not on PATH** — do not try to spawn a child `powershell.exe`.
+4. Inline Word COM automation works fine; the script uses the same calls that were verified inline.
 
-1. **`Join-Path`** — the single most surprising one. Build paths with string interpolation (`"$outDir\$($f.BaseName).pdf"`) or `[System.IO.Path]::ChangeExtension()` instead.
-2. **Executing .ps1 script files** (`& C:\...\convert.ps1` or `-File ...`) — dies at the invocation point.
-3. **Spawning powershell.exe child processes** (bare `powershell` is also not on PATH).
-
-What DOES work inline (all verified): `New-Object -ComObject Word.Application` (full Word COM automation), `Get-ChildItem` / `Where-Object` / regex matching, try/catch/finally, foreach, Chinese paths, `New-Item -ItemType Directory -Force`, writing to any directory.
-
-Side effect of a killed command: it may leave an invisible zombie `WINWORD.EXE` behind (the script never reaches `$word.Quit()`). Before/after failed runs, check with `Get-Process WINWORD` via the Bash tool (`tasklist | grep -i winword`) and kill ONLY title-less instances: `Get-Process WINWORD | Where-Object { -not $_.MainWindowTitle } | Stop-Process -Force` (never kill instances with a window title — those are the user's editing sessions).
-
-Therefore: **always use the inline snippets below in the PowerShell tool**. The bundled `scripts/convert.ps1` is only for the user's manual use in a real console outside the sandbox.
-
-## Primary Workflow (agent, inline snippet)
-
-Single file — PDF next to the source (default behavior users usually want):
+**Zombie processes:** if a conversion run is killed mid-flight, it can leave an invisible `WINWORD.EXE` behind (the script never reaches `$word.Quit()`). Check with `tasklist | grep -i winword` (Bash tool) and clean up only title-less instances:
 
 ```powershell
-$src = "C:\path\to\简历.docx"
-$dst = [System.IO.Path]::ChangeExtension($src, ".pdf")
-$word = New-Object -ComObject Word.Application
-$word.Visible = $false
-$word.DisplayAlerts = 0
-try {
-    $doc = $word.Documents.Open($src, $false, $true)
-    $doc.SaveAs2($dst, 17)   # 17 = wdFormatPDF
-    $doc.Close($false)
-} finally {
-    $word.Quit()
-    [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
-}
+Get-Process WINWORD | Where-Object { -not $_.MainWindowTitle } | Stop-Process -Force
 ```
 
-Multiple files or a whole directory (each PDF next to its source):
+Never kill a WINWORD with a window title — that is the user's own editing session with unsaved work.
 
-```powershell
-$files = Get-ChildItem -Path "C:\some\dir" -File | Where-Object { $_.Name -notlike '~$*' -and $_.Extension -match '^\.(docx|doc)$' }
-# or: $files = @("C:\a.docx", "C:\b.docx")
-$word = New-Object -ComObject Word.Application
-$word.Visible = $false
-$word.DisplayAlerts = 0
-$ok = 0; $fail = 0
-try {
-    foreach ($f in $files) {
-        $dst = [System.IO.Path]::ChangeExtension($f.FullName, ".pdf")
-        try {
-            $doc = $word.Documents.Open($f.FullName, $false, $true)
-            $doc.SaveAs2($dst, 17)
-            $doc.Close($false)
-            $ok++
-        } catch { $fail++ }
-    }
-} finally {
-    $word.Quit()
-    [System.Runtime.Interopservices.Marshal]::ReleaseComObject($word) | Out-Null
-}
-"Done. OK=$ok FAIL=$fail"
-```
+## Manual Use by the User (outside the agent)
 
-Custom output directory — build `$dst` with string interpolation (NEVER `Join-Path`, see constraints above) and create the directory first:
-
-```powershell
-$outDir = "D:\some\out"
-New-Item -ItemType Directory -Path $outDir -Force | Out-Null
-# inside the foreach:
-$dst = "$outDir\$($f.BaseName).pdf"
-```
-
-Key constants: `SaveAs2` format `17` = PDF; `Documents.Open($src, $false, $true)` opens read-only without conversion prompts. Overwrite of an existing PDF is automatic.
-
-## Workflow Steps
-
-1. Confirm source path(s) exist; if the user named a folder, expand it (non-recursive, skip `~$` lock files).
-2. Run the inline snippet above in the PowerShell tool with the actual paths. Non-ASCII (Chinese) paths are safe in inline commands.
-3. **Verify** (the PowerShell tool's stdout is often NOT displayed — do not rely on it): list the output location with the Bash tool (`ls -la <dir>`) and confirm each PDF exists with a fresh timestamp and plausible size. If in doubt, check the file starts with `%PDF-` (e.g. `head -c 8 file.pdf`).
-4. Present the resulting PDF(s) with the file presentation tool.
-
-## Manual Console Script (for the user, outside the agent)
-
-`scripts/convert.ps1` wraps the same logic for direct console use:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\Chen\.workbuddy\skills\docx2pdf\scripts\convert.ps1" "D:\docs\a.docx" "D:\docs\*.docx" [-OutputDir "D:\out"]
-```
-
-Accepts files, directories (non-recursive), or globs; prints one `OK:`/`FAIL:` line per file; exit code 0 on full success. Never invoke it from the agent's PowerShell tool (sandbox blocks it — see constraints above).
+- **Drag & drop**: drop Word files or a folder onto `scripts\convert.bat` — PDFs appear next to each source file. (Verified by inspection only: the agent's environment blocks cmd.exe, so this wrapper could not be executed during development. The `convert.ps1` it calls is fully tested.)
+- **Console**: `powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\Chen\.workbuddy\skills\docx2pdf\scripts\convert.ps1" "D:\docs\a.docx" [-OutputDir "D:\out"]`
 
 ## Troubleshooting
 
 - **`New-Object -ComObject Word.Application` fails**: MS Word missing or COM blocked. Fallbacks: (a) check for LibreOffice (`soffice --headless --convert-to pdf --outdir <dir> <file>` via the Bash tool); (b) tell the user MS Word is needed for lossless conversion.
 - **A document is open in Word on the user's desktop**: read-only open still works; if it fails, ask the user to close the document and retry.
-- **Command dies silently / exit code 1 with no output**: the sandbox blocked a construct used — most often `Join-Path`, .ps1 file invocation, or child process spawning. Replace `Join-Path` with string interpolation and keep everything inline (see constraints above). A killed command may also leave a zombie WINWORD.EXE — clean it up (title-less instances only).
-- **Future edits to convert.ps1**: keep it ASCII-only. PowerShell 5.1 misreads UTF-8-without-BOM .ps1 files and garbles non-ASCII text. Non-ASCII belongs in runtime arguments, not in the file.
+- **Command dies silently / exit code 1 with no output**: a blocked token (constraint 1) or blocked program (constraint 2) is in the command. Remove it and retry; then check for and kill zombie WINWORD processes.
+- **Script reports FAIL for a file**: the message after `--` carries Word's error (often a corrupted or password-protected file).
+- **Editing `convert.ps1`**: keep it ASCII-only (PowerShell 5.1 misreads UTF-8-without-BOM .ps1 files and garbles non-ASCII text) and keep the forbidden token out of it, comments included.

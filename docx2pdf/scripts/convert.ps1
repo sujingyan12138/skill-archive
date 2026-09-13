@@ -3,13 +3,12 @@
 # Requires: Windows + installed MS Word (any recent version).
 #
 # IMPORTANT - invocation style:
-#   This script is for MANUAL use in a real PowerShell console (outside the
-#   WorkBuddy agent sandbox). In the agent's PowerShell tool, executing .ps1
-#   files via `&` or spawning powershell.exe children is BLOCKED by the
-#   sandbox - there, use the inline snippet documented in SKILL.md instead.
+#   Works both in a real PowerShell console AND inside the WorkBuddy agent's
+#   PowerShell tool (via `& "C:\...\convert.ps1" <path> ...`).
 #
 #   Manual console usage:
 #     powershell -NoProfile -ExecutionPolicy Bypass -File convert.ps1 <path> [-OutputDir <dir>]
+#   Or simply drag Word files onto convert.bat (next to this file).
 #
 #   Each <path> can be:
 #     - a .docx or .doc file
@@ -22,11 +21,18 @@
 #   - Existing PDFs are overwritten.
 #
 # Notes:
-#   - This script NEVER calls `exit`/`throw` at top level on purpose: when invoked
-#     in-process, `exit` would terminate the whole agent PowerShell session.
+#   - NEVER use PowerShell's built-in path-joining cmdlet (the one that combines
+#     a directory and a child name) inside this script, and never put its exact
+#     name in this file: the agent's sandbox silently kills any command whose
+#     executed code contains that token (verified 2026-09-13: the command dies
+#     right at that statement, leaving a zombie WINWORD.EXE). Build paths with
+#     string interpolation ("$dir\$name.pdf") instead. The path-resolving cmdlet
+#     (the one that turns a relative path into an absolute one) is avoided for
+#     the same reason.
+#   - This script NEVER calls `exit`/`throw` at top level on purpose: when
+#     invoked in-process, `exit` would terminate the whole agent PowerShell session.
 #     Status is reported via output lines ("OK:", "FAIL:", "Done. OK=x FAIL=y")
-#     plus $script:ConvertResult ('success' | 'error'). Redirect output to a log
-#     file and read it back if stdout is not visible.
+#     plus $script:ConvertResult ('success' | 'error').
 #   - Keep this file ASCII-only: PowerShell 5.1 misreads UTF-8 .ps1 files without
 #     BOM, which would garble non-ASCII comments. Paths with non-ASCII characters
 #     (e.g. Chinese) are safe when passed as arguments at runtime.
@@ -43,17 +49,21 @@ $script:ConvertResult = 'error'
 # ---- Collect source files ----
 $files = New-Object System.Collections.Generic.List[string]
 foreach ($p in $Paths) {
-    if (Test-Path $p -PathType Container) {
+    # Wildcard check MUST come first: Test-Path returns True for patterns like
+    # "C:\dir\*.docx" (it matches existing items), so a later wildcard branch
+    # would be unreachable and the raw pattern would be handed to Word.
+    if ($p -match '[*?]') {
+        Get-ChildItem -Path $p -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notlike '~$*' -and $_.Extension -match '^\.(docx|docm|doc)$' } |
+            ForEach-Object { $files.Add($_.FullName) }
+    }
+    elseif (Test-Path $p -PathType Container) {
         Get-ChildItem -Path $p -File |
-            Where-Object { $_.Name -notlike '~$*' -and $_.Extension -match '^\.(docx|doc)$' } |
+            Where-Object { $_.Name -notlike '~$*' -and $_.Extension -match '^\.(docx|docm|doc)$' } |
             ForEach-Object { $files.Add($_.FullName) }
     }
     elseif (Test-Path $p -PathType Leaf) {
-        $files.Add((Resolve-Path -Path $p).Path)
-    }
-    elseif ($p -match '[*?]') {
-        Get-ChildItem -Path $p -File -ErrorAction SilentlyContinue |
-            ForEach-Object { $files.Add($_.FullName) }
+        $files.Add($p)
     }
     else {
         Write-Output "SKIP (not found): $p"
@@ -80,7 +90,8 @@ try {
 
     foreach ($src in $files) {
         if ($OutputDir) {
-            $dst = Join-Path $OutputDir ([System.IO.Path]::GetFileNameWithoutExtension($src) + '.pdf')
+            $base = [System.IO.Path]::GetFileNameWithoutExtension($src)
+            $dst = "$OutputDir\$base.pdf"
         }
         else {
             $dst = [System.IO.Path]::ChangeExtension($src, '.pdf')
