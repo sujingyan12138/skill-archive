@@ -65,7 +65,9 @@ Report the target archive path, commit hash, and push result. If the archive alr
 
 ## Script Workflow
 
-Use the bundled script for deterministic sync:
+**Environment caveat (verified 2026-09-13):** the bundled `sync-skill-archive.ps1` contains the path-joining cmdlet token that the WorkBuddy agent's PowerShell sandbox silently kills, and it also may need `cmd.exe`/child processes, which that tool forbids. **In the agent environment, do NOT try to run the script — use the Manual Workflow below** (Bash tool + `cp` + `git`). The script remains valid for a real PowerShell console outside the agent.
+
+Use the bundled script (real console only) for deterministic sync:
 
 ```powershell
 $env:SystemRoot='C:\Windows'; $env:WINDIR='C:\Windows'
@@ -84,6 +86,19 @@ Useful options:
 - `-DryRun`: show what would change without copying, committing, or pushing.
 - `-CommitMessage <message>`: override the generated commit message.
 - `-Push`: commit and push after syncing.
+
+## Manual Workflow (agent environment — preferred)
+
+Do the same steps with the Bash tool. Never invoke PowerShell from Bash (blocked by policy); `cp` and `git` are fine.
+
+1. Inspect the archive: `ls "D:/PyCharm/CODE/SKILL"` and search for an existing copy with the same skill name (`find "D:/PyCharm/CODE/SKILL" -maxdepth 2 -type d -name "<skill-name>"`).
+2. Choose a category: reuse the one that already holds the copy; otherwise pick the nearest existing category folder, or place the skill as its own root-level folder when comparable utility skills live at the archive root (e.g. `Word图表快速插入`).
+3. Copy the source skill folder into the archive:
+   `cp -r "C:/Users/Chen/.workbuddy/skills/<name>" "D:/PyCharm/CODE/SKILL/<category-or-root>/<name>"`
+4. `git -C "D:/PyCharm/CODE/SKILL" status --short` — stage only the skill path, never unrelated dirty files.
+5. `git -C "D:/PyCharm/CODE/SKILL" add <path>` then commit with a descriptive Chinese message.
+6. Push: `git -C "D:/PyCharm/CODE/SKILL" push`. On proxy failure, retry with `HTTP_PROXY`/`HTTPS_PROXY=http://127.0.0.1:10808` exported in the Bash environment. If it still fails, leave the local commit and report that the push is pending.
+7. Confirm with `git status -sb` (`[ahead N]` means the push did not land).
 
 ## Verification
 
