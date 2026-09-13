@@ -73,8 +73,11 @@ Never kill a WINWORD with a window title — that is the user's own editing sess
 
 ## Manual Use by the User (outside the agent)
 
-- **Drag & drop**: drop Word files or a folder onto `scripts\convert.bat` — PDFs appear next to each source file. (Verified by inspection only: the agent's environment blocks cmd.exe, so this wrapper could not be executed during development. The `convert.ps1` it calls is fully tested.)
+- **Drag & drop (easiest)**: a launcher already exists on the user's Desktop — `C:\Users\Chen\Desktop\Word转PDF（拖文件到这里）.bat`. Drop Word files or a folder onto it; PDFs appear next to each source file. It is a self-contained ASCII/CRLF .bat that hard-codes the absolute path of `convert.ps1` and forwards dropped paths via `%*`, so it works regardless of where it is moved. Recreate it only if missing.
+- Alternatively drop files onto `scripts\convert.bat` inside the skill folder (uses `%~dp0`).
 - **Console**: `powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\Chen\.workbuddy\skills\docx2pdf\scripts\convert.ps1" "D:\docs\a.docx" [-OutputDir "D:\out"]`
+
+Both .bat wrappers are verified by inspection only (this environment hard-blocks `cmd.exe`, so they cannot be executed by the agent); the `convert.ps1` they call is fully tested. Keep any .bat here ASCII-only with CRLF endings — Chinese text inside a .bat renders as mojibake under the default GBK console codepage.
 
 ## Troubleshooting
 
