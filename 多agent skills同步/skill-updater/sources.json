@@ -1,0 +1,92 @@
+{
+  "_doc": [
+    "skill-updater 来源清单。只登记「从 GitHub 仓库 / 官网下载」的 skill；自己写的 skill 不要写进来，脚本不会碰它们。",
+    "repo: owner/repo    path: 仓库内该 skill 所在目录（空字符串 = 仓库根就是 skill）    ref: 分支",
+    "enabled=false 的条目会被 update 跳过，但 check 仍会报告状态。",
+    "新增来源：python scripts/skill_update.py add <本地目录名> <owner/repo> <仓库内路径> [ref]"
+  ],
+  "version": 1,
+  "roots": {
+    "primary": "C:\\Users\\Chen\\.cc-switch\\skills",
+    "mirrors": [
+      "C:\\Users\\Chen\\.codex\\skills",
+      "C:\\Users\\Chen\\.claude\\skills",
+      "C:\\Users\\Chen\\.workbuddy\\skills"
+    ],
+    "backup_dir": "C:\\Users\\Chen\\.cc-switch\\.skill-backups"
+  },
+  "skills": {
+    "gc-minimal-zine-poster-v0-3": {
+      "repo": "LiamGvchi/gc-minimal-zine-poster",
+      "path": "",
+      "ref": "main",
+      "note": "仓库根即 skill；本地目录名多了 -v0-3 后缀"
+    },
+    "skill-creator": {
+      "repo": "anthropics/skills",
+      "path": "skills/skill-creator",
+      "ref": "main"
+    },
+    "frontend-design": {
+      "repo": "anthropics/skills",
+      "path": "skills/frontend-design",
+      "ref": "main"
+    },
+    "grill-me": {
+      "repo": "mattpocock/skills",
+      "path": "skills/productivity/grill-me",
+      "ref": "main"
+    },
+    "grilling": {
+      "repo": "mattpocock/skills",
+      "path": "skills/productivity/grilling",
+      "ref": "main"
+    },
+    "playwright-cli": {
+      "repo": "microsoft/playwright-cli",
+      "path": "skills/playwright-cli",
+      "ref": "main"
+    },
+    "opencli-browser": {
+      "repo": "jackwener/opencli",
+      "path": "skills/opencli-browser",
+      "ref": "main"
+    },
+    "opencli-usage": {
+      "repo": "jackwener/opencli",
+      "path": "skills/opencli-usage",
+      "ref": "main"
+    },
+    "smart-search": {
+      "repo": "jackwener/opencli",
+      "path": "skills/smart-search",
+      "ref": "main",
+      "note": "曾误以为是自建，实为 opencli 仓库自带"
+    },
+    "hatch-pet": {
+      "repo": "openai/skills",
+      "path": "skills/.curated/hatch-pet",
+      "ref": "main",
+      "enabled": false,
+      "note": "本地版本含 v2 专属脚本（extract_cardinal_anchors / assemble_extended_atlas 等 15 个），比 openai/skills 上游新，覆盖会降级。确认真正上级来源后再启用。"
+    },
+    "notebooklm": {
+      "repo": "teng-lin/notebooklm-py",
+      "path": "",
+      "ref": "main",
+      "enabled": false,
+      "mode": "package",
+      "note": "本地只有 SKILL.md，由 PyPI 包 notebooklm-py 附带。正确更新方式：pip install -U notebooklm-py 后从包内重新取用 SKILL.md，不建议直接拉仓库。"
+    },
+    "humanizer-latest": {
+      "repo": "blader/humanizer",
+      "path": "",
+      "ref": "main",
+      "note": "blader/humanizer v3.0.0。目录名保持 humanizer-latest（与用户原有安装名一致），因此用 pinned 固定 SKILL.md 里被改过的 name 行；其余文件照常跟随上游。",
+      "enabled": true,
+      "pinned": {
+        "SKILL.md": "c8862c86a362e41c69f99548cf92a39e6cb8af9503ab9a5e5edd06db7b02b8f1"
+      }
+    }
+  }
+}

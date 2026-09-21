@@ -1,0 +1,16 @@
+{
+  "_doc": [
+    "Claude Code 插件更新配置。",
+    "插件本身不需要逐条登记 —— marketplaces/cache/installed_plugins.json/settings.json 里已经有全部信息，脚本会实时读取。",
+    "这里只放少数需要人工指定的东西：",
+    "  claude_dir            Claude 配置目录（默认 ~/.claude）",
+    "  backup_dir            旧版本备份根目录，插件会备份到 <backup_dir>/plugins/",
+    "  marketplace_repos     当 known_marketplaces.json 里查不到仓库地址时，在这里补「市场名: owner/repo」",
+    "  skip                  不想让脚本管的插件，写 full key，形如 name@marketplace"
+  ],
+  "version": 1,
+  "claude_dir": "C:\\Users\\Chen\\.claude",
+  "backup_dir": "C:\\Users\\Chen\\.cc-switch\\.skill-backups",
+  "marketplace_repos": {},
+  "skip": []
+}
