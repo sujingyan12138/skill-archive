@@ -12,5 +12,7 @@
   "claude_dir": "C:\\Users\\Chen\\.claude",
   "backup_dir": "C:\\Users\\Chen\\.cc-switch\\.skill-backups",
   "marketplace_repos": {},
-  "skip": []
+  "skip": [
+    "superpowers@claude-plugins-official"
+  ]
 }
