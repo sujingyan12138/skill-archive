@@ -82,10 +82,15 @@
       "repo": "blader/humanizer",
       "path": "",
       "ref": "main",
-      "note": "blader/humanizer v3.0.0。目录名保持 humanizer-latest（与用户原有安装名一致），因此用 pinned 固定 SKILL.md 里被改过的 name 行；其余文件照常跟随上游。",
+      "note": "blader/humanizer。目录名保持 humanizer-latest（与用户原有安装名一致），所以用 transform 把上游 SKILL.md 的 name 行改成本地名；正文与其余文件全部跟随上游。",
       "enabled": true,
-      "pinned": {
-        "SKILL.md": "c8862c86a362e41c69f99548cf92a39e6cb8af9503ab9a5e5edd06db7b02b8f1"
+      "transform": {
+        "SKILL.md": [
+          [
+            "^name: humanizer$",
+            "name: humanizer-latest"
+          ]
+        ]
       }
     }
   }

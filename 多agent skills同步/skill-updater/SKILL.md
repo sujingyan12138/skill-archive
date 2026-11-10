@@ -116,34 +116,44 @@ skill：
 - `jackwener/opencli` → opencli-browser、opencli-usage、smart-search
 - `microsoft/playwright-cli` → playwright-cli
 - `LiamGvchi/gc-minimal-zine-poster` → gc-minimal-zine-poster-v0-3
-- `humanizer-latest` → `blader/humanizer`（根，v3.0.0；用 `pinned` 固定 `SKILL.md`，见上）
+- `humanizer-latest` → `blader/humanizer`（根，v4.0.0；用 `transform` 把 `name` 行改成本地名，正文跟随上游，见上）
 - ⏸ `openai/skills` → hatch-pet（本地 v2 版比上游新，覆盖会降级，暂不启用）
 - ⏸ `teng-lin/notebooklm-py` → notebooklm（由 pip 包附带，应走 `pip install -U notebooklm-py`）
 
 **插件不需要逐条登记** —— `marketplaces/cache/*.json` 已经是完整清单，脚本实时读取。`plugins.json` 只放 `claude_dir`、`backup_dir`、`marketplace_repos`（补市场地址）、`skip` 这几项。
 
-### `pinned`：有意保留的本地改写
+### `transform`：只改一行，正文跟随上游（首选）
 
-偶尔要「只改一两个文件，其余跟随上游」，比如**目录名与上游 frontmatter 的 `name` 不一致**（部署名 ≠ 仓库名）。
+偶尔要「只改一两个地方，其余跟随上游」，比如**目录名与上游 frontmatter 的 `name` 不一致**（部署名 ≠ 仓库名）。
 
 ```json
 "humanizer-latest": {
   "repo": "blader/humanizer", "path": "", "ref": "main", "enabled": true,
-  "pinned": { "SKILL.md": "<该文件归一化后的 sha256>" }
+  "transform": {
+    "SKILL.md": [["^name: humanizer$", "name: humanizer-latest"]]
+  }
 }
 ```
 
-被 pin 的文件在比对时按「本地原样」处理：`check` 不报「本地被改过」，`update` 也不会用上游覆盖它。**其余文件照常跟随上游**，改动别的文件仍会被检出，pin 不是整目录免检。
+每次比对/更新前，脚本先把上游文件内容按规则做正则替换，再拿结果跟本地比。所以：
 
-加 pin 的正确姿势：改完文件后，用脚本自己的归一化函数取哈希（别用 `sha256sum`，那个不做 CRLF/LF 归一化）：
+- 本地只要和「上游 + 替换」一致就报「已是最新」
+- 上游更新正文时**照常更新**，替换规则自动重新施加
+- 替换只作用于指定文件、指定行，其他文件完全不受影响
 
-```python
-import sys; sys.path.insert(0, 'scripts')
-import skill_update as su
-from pathlib import Path
-raw = Path(r'<主源>\humanizer-latest\SKILL.md').read_bytes()
-print(su.sha256(su.norm(raw)))
+`transform` 的值是 `{仓库内相对路径: [[正则, 替换], ...]}`，正则用 Python `re` 语法、`re.M` 多行模式。
+
+### `pinned`：整文件冻结（已不推荐）
+
+```json
+"pinned": { "SKILL.md": "<该文件归一化后的 sha256>" }
 ```
+
+被 pin 的文件在比对时按「本地原样」处理：`check` 不报「本地被改过」，`update` 也不会用上游覆盖。
+
+⚠️ **已知硬伤（2026-11-10 实测）**：pin 会把文件**永久冻结在登记时的那个版本**。humanizer-latest 就因此从 v3.0.0 一直卡到上游发了 v4.0.0 —— `check` 一直报「已是最新」，实际内容落后一整年。更糟的是 `update` 会把 state 里的 commit 记成新版本，导致下次 `check` 走「commit 没变」的快速路径，连「本地被改过」都不再报。
+
+**结论：需要「本地改名 / 改一行」时一律用 `transform`；`pinned` 只保留给「整文件都必须原样保留」的极少数场景。** 两者可并存，执行顺序是 transform 先、pinned 后。
 
 ### 新增一个 skill 来源
 
@@ -167,18 +177,20 @@ python scripts/skill_update.py check <本地目录名>     # 验证路径对不�
 - **网络失败**：确认 `codeload.github.com` 与 `api.github.com` 能否直连；不行就加 `--proxy`。
 - **插件报「取不到市场仓库的最新 commit」**：`api.github.com` 匿名额度只有 **60 次/小时**，用光后取不到 sha。脚本对这类仓库**优先走 Atom feed**（`https://github.com/<repo>/commits/<ref>.atom`）——它不走 API、不受该限流，API 仅作兜底。若两条路都失败，脚本会**明确报错**，绝不会把"没查成"伪装成"没有更新"（早期版本会因此算出空版本号，误报"有更新"，且真执行会把文件铺在 `cache/<插件>/` 下、破坏版本目录结构）。
 - **下载缓存占空间**：删掉本技能目录下的 `.cache\` 即可，会自动重建。
-- **校验 pin 值到底有没有生效**（调试用）：想绕过 CLI 直接复验，注意两个 API 惯例 —— ① `bind_workdir(cfg)` 返回的是 **`skill-updater` 自己的目录**（`<primary>/skill-updater`），**不是主源根**；要拿主源根得用 `Path(cfg["roots"]["primary"])`。② pin 值必须与 `sha256(norm(raw))` 同口径，不是 `sha256(raw)`。复验脚本：
+- **校验 transform 有没有生效 / 为什么本地版本落后**（调试用）：绕过 CLI 直接复验，注意两个 API 惯例 —— ① `bind_workdir(cfg)` 返回的是 **`skill-updater` 自己的目录**（`<primary>/skill-updater`），**不是主源根**；要拿主源根得用 `Path(cfg["roots"]["primary"])`。② 比对一律走 `sha256(norm(bytes))`，不是 `sha256sum` 的原始字节哈希。复验脚本：
   ```python
   import skill_update as su
   from pathlib import Path
   cfg = su.load_json(su.CONFIG, {}); su.bind_workdir(cfg)
   root = Path(cfg["roots"]["primary"])
-  su.PINNED_CACHE.update({k: v["pinned"] for k, v in cfg["skills"].items() if v.get("pinned")})
-  tree = su.sub_tree(su.fetch_zip("blader/humanizer", "main"), "")
+  su.TRANSFORM_CACHE.update({k: v["transform"] for k, v in cfg["skills"].items() if v.get("transform")})
+  tree = su.fetch_zip("blader/humanizer", "main")
   loc = su.local_tree(root / "humanizer-latest")
-  eff = su.effective_upstream("humanizer-latest", loc, tree)   # 被 pin 的文件应等于本地内容
-  print(su.sha256(su.norm(eff["SKILL.md"])) == su.sha256(su.norm(loc["SKILL.md"])))
+  eff = su.effective_upstream("humanizer-latest", loc, tree)   # 上游 + transform 后的结果
+  print(eff["SKILL.md"].decode()[:80])                          # name 行应已是本地名
+  print(su.compare(loc, eff))                                   # changed 为空 = 已对齐
   ```
+- **`check` 报「已是最新」但本地明显落后**：先怀疑快速路径。`cmd_check` 在上游 commit 未变时会直接返回，不再逐文件比对；而 `update` 可能因为 pin 保护只写了部分文件、却把 commit 记成了新版。排查办法是直接跑上面的复验脚本（不走快速路径），或临时删掉 `.state.json` 里该 skill 的 `commit` 字段强制全量比对。
 - **`sha256sum` 算出的哈希和脚本里的不一致**：正常现象。脚本比对前做 CRLF/LF 归一化，`sha256sum` 不会，纯换行差异的两份文件哈希不同。判断"是否最新"只看 `check` 的输出，别拿 `sha256sum` 对值。
 
 ## 六、注意

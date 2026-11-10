@@ -39,6 +39,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import sys
 import time
@@ -65,6 +66,7 @@ def bind_workdir(cfg: dict) -> Path:
     """状态、缓存、配置始终落在主源那份里，保证从任意副本调用都共享同一份记录。"""
     global STATE, CACHE, CONFIG
     PINNED_CACHE.clear()          # 换配置就要重新读 pin；同一次运行内可能被调多次，清空是幂等的
+    TRANSFORM_CACHE.clear()       # transform 同理
     primary = cfg.get("roots", {}).get("primary")
     candidates = []
     if primary:
@@ -450,6 +452,42 @@ class Targets:
 # check 不会报「本地被改过」，update 也不会用上游内容覆盖它。
 # 适用场景：目录名与上游 frontmatter 的 name 不一致（如部署名 ≠ 仓库名）。
 PINNED_CACHE: dict[str, dict] = {}
+# 内容改写规则：{skill: {仓库内相对路径: [[正则, 替换], ...]}}
+# 与 pinned 的区别：pinned 把整个文件冻结在登记时的版本（上游后续更新全部丢失）；
+# transform 每次都对「最新上游」重新施加替换，正文始终跟随上游。
+TRANSFORM_CACHE: dict[str, dict] = {}
+
+
+def transforms_for(cfg: dict, skill: str) -> dict:
+    if skill not in TRANSFORM_CACHE:
+        raw = (cfg["skills"].get(skill) or {}).get("transform") or {}
+        TRANSFORM_CACHE[skill] = raw
+    return TRANSFORM_CACHE[skill]
+
+
+def apply_transforms(skill: str, upstream: dict[str, bytes]) -> dict[str, bytes]:
+    """按 transform 规则改写上游文件内容。
+
+    典型用途：部署目录名与上游 frontmatter 的 name 不一致，只需把 name 那一行
+    换成本地名，其余正文照常跟随上游。
+    """
+    rules = TRANSFORM_CACHE.get(skill) or {}
+    if not rules:
+        return upstream
+    out = dict(upstream)
+    for rel, subs in rules.items():
+        if rel not in out:
+            continue
+        try:
+            text = out[rel].decode("utf-8")
+        except UnicodeDecodeError:      # 二进制文件不参与替换
+            continue
+        for pair in subs or []:
+            if not isinstance(pair, (list, tuple)) or len(pair) < 2:
+                continue
+            text = re.sub(str(pair[0]), str(pair[1]), text, flags=re.M)
+        out[rel] = text.encode("utf-8")
+    return out
 
 
 def pinned_for(cfg: dict, skill: str) -> dict:
@@ -461,7 +499,8 @@ def pinned_for(cfg: dict, skill: str) -> dict:
 
 
 def effective_upstream(skill: str, local: dict[str, bytes], upstream: dict[str, bytes]) -> dict[str, bytes]:
-    """把被 pin 的文件换成本地现有内容，让指纹比对把它们视作「未改动」。"""
+    """先施加 transform 改写，再把被 pin 的文件换成本地现有内容。"""
+    upstream = apply_transforms(skill, upstream)
     pins = PINNED_CACHE.get(skill) or {}
     if not pins:
         return upstream
@@ -1039,6 +1078,8 @@ def main(argv=None):
     pins = {k: (v or {}).get("pinned") or {} for k, v in cfg["skills"].items()}
     pins = {k: v for k, v in pins.items() if v}
     PINNED_CACHE.update(pins)     # 预载 pin，避免后续再次 bind_workdir 时被清掉
+    trs = {k: (v or {}).get("transform") or {} for k, v in cfg["skills"].items()}
+    TRANSFORM_CACHE.update({k: v for k, v in trs.items() if v})
 
     rc = 0
     if args.cmd in ("check", "update") and not args.skills_only:
