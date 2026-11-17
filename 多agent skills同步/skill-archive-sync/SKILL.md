@@ -21,7 +21,7 @@ Use this skill when the user asks to:
 - find an older archived copy of a skill and update it
 - push skill changes to the archive remote
 - preserve a newly created global/project skill
-- keep `.codex/skills`, `.claude/skills`, `.agents/skills`, `.cc-switch/skills`, and the archive repository aligned
+- keep `.codex/skills`, `.claude/skills`, `.agents/skills`, magpie `library/skills`, and the archive repository aligned
 
 If the current task just edits a project skill but the user has previously established that skill edits should be archived, use this skill before finishing.
 
@@ -30,7 +30,7 @@ If the current task just edits a project skill but the user has previously estab
 1. Identify the source skill directory.
    - Prefer an explicit source path from the user.
    - Otherwise use the skill directory just created or modified.
-   - Valid source roots include project `.codex/skills/<name>`, `.claude/skills/<name>`, `.agents/skills/<name>`, global `%USERPROFILE%\.cc-switch\skills\<name>`, `%USERPROFILE%\.codex\skills\<name>`, and `%USERPROFILE%\.claude\skills\<name>`.
+   - Valid source roots include project `.codex/skills/<name>`, `.claude/skills/<name>`, `.agents/skills/<name>`, global `%USERPROFILE%\.config\magpie\library\skills\<name>`, `%USERPROFILE%\.codex\skills\<name>`, and `%USERPROFILE%\.claude\skills\<name>`.
 
 2. Search the archive for existing copies.
    - Find directories named exactly like the source skill and containing `SKILL.md`.
@@ -128,7 +128,7 @@ Use the bundled script (real console only) for deterministic sync:
 
 ```powershell
 $env:SystemRoot='C:\Windows'; $env:WINDIR='C:\Windows'
-& "$env:USERPROFILE\.cc-switch\skills\skill-archive-sync\scripts\sync-skill-archive.ps1" `
+& "$env:USERPROFILE\.config\magpie\library\skills\skill-archive-sync\scripts\sync-skill-archive.ps1" `
   -SourcePath "C:\path\to\skill-name" `
   -Category "多agent skills同步" `
   -Push

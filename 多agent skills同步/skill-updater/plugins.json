@@ -10,7 +10,7 @@
   ],
   "version": 1,
   "claude_dir": "C:\\Users\\Chen\\.claude",
-  "backup_dir": "C:\\Users\\Chen\\.cc-switch\\.skill-backups",
+  "backup_dir": "C:\\Users\\Chen\\.config\\magpie\\.skill-backups",
   "marketplace_repos": {},
   "skip": [
     "superpowers@claude-plugins-official"

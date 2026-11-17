@@ -1,4 +1,4 @@
-﻿param(
+param(
   [Parameter(Mandatory=$true)]
   [string]$SkillName,
 
@@ -138,7 +138,7 @@ function Backup-SkillDir {
   $stamp = (Get-Date).ToString("yyyyMMdd-HHmmss")
   $root = $BackupRoot
   if (-not $root) {
-    $root = Join-Path $env:USERPROFILE ".cc-switch\.skill-backups\sync"
+    $root = Join-Path $env:USERPROFILE ".config\magpie\.skill-backups\sync"
   }
   $safe = $Label -replace '[\\/:*?"<>|]', '_'
   $dest = Join-Path (Join-Path $root $SkillName) ("$safe`__$stamp\files")
@@ -241,7 +241,7 @@ if (-not $RepoRoot) {
 }
 
 $userHome = $env:USERPROFILE
-$masterRoot = Join-Path $userHome ".cc-switch\skills"
+$masterRoot = Join-Path $userHome ".config\magpie\library\skills"
 
 $globalSkillRoots = @(
   (Join-Path $userHome ".codex\skills"),

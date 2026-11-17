@@ -33,7 +33,7 @@ allowed-tools: Bash(powershell:*) Bash(pwsh:*)
 按顺序取第一个存在的：
 
 1. 显式 `-SourcePath`
-2. `%USERPROFILE%\.cc-switch\skills\<skill-name>` —— **主源**，真实目录
+2. `%USERPROFILE%\.config\magpie\library\skills\<skill-name>` —— **主源**，真实目录
 3. `<project>\.agents\skills\<skill-name>`
 4. `<project>\.codex\skills\<skill-name>`
 5. `<project>\.claude\skills\<skill-name>`
@@ -72,7 +72,7 @@ $env:SystemRoot='C:\Windows'; $env:WINDIR='C:\Windows'
 ## 四、行为
 
 - **默认单向**：以选定的 source 为准，逐文件推到各目标，写前把目标整目录备份到
-  `%USERPROFILE%\.cc-switch\.skill-backups\sync\<skill-name>\<目标标签>__<时间戳>\files\`。
+  `%USERPROFILE%\.config\magpie\.skill-backups\sync\<skill-name>\<目标标签>__<时间戳>\files\`。
 - **`-Bidirectional`**：退回旧的两两合并逻辑，逐文件比 mtime、新的覆盖旧的。
   ⚠️ **不要用它做全局同步** —— 整目录复制会刷新文件时间戳，"内容旧但时间新"的副本会把刚拉新的主源反向覆盖掉（本机 2026-09 踩过：`.workbuddy` 里所有 skill 的 mtime 都是复制日）。要判断谁该赢，用 `skill-updater` 的 `mirrors` 看事实。
 - **不删文件**：目标里多出来的文件一律保留并在报告里提示。

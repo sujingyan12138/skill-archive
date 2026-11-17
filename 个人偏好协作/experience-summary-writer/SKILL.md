@@ -1,6 +1,6 @@
 ---
 name: experience-summary-writer
-description: Maintain and safely retrieve the cross-project AI collaboration ledger at D:\Homework\Obsidian\经验总结.md. Use this whenever the user asks to record, improve, review, or retrieve reusable pitfalls, debugging lessons, operational mistakes, thinking mistakes, collaboration takeaways, or a personal AI memory system; trigger on phrases such as "把这次踩坑写进经验总结", "总结这次协作经验", "记录到经验总结.md", and "以后遇到类似问题先查经验总结". Also use proactively when an AI is stuck or repeats failed attempts: search the ledger for scoped hypotheses, validate them against current evidence, and write back only after a reusable lesson is established.
+description: 'Maintain and safely retrieve the cross-project AI collaboration ledger at D:\Homework\Obsidian\经验总结.md. Use this whenever the user asks to record, improve, review, or retrieve reusable pitfalls, debugging lessons, operational mistakes, thinking mistakes, collaboration takeaways, or a personal AI memory system; trigger on phrases such as "把这次踩坑写进经验总结", "总结这次协作经验", "记录到经验总结.md", and "以后遇到类似问题先查经验总结". Also use proactively when an AI is stuck or repeats failed attempts: search the ledger for scoped hypotheses, validate them against current evidence, and write back only after a reusable lesson is established.'
 ---
 
 # Experience Summary Writer

@@ -7,13 +7,9 @@
   ],
   "version": 1,
   "roots": {
-    "primary": "C:\\Users\\Chen\\.cc-switch\\skills",
-    "mirrors": [
-      "C:\\Users\\Chen\\.codex\\skills",
-      "C:\\Users\\Chen\\.claude\\skills",
-      "C:\\Users\\Chen\\.workbuddy\\skills"
-    ],
-    "backup_dir": "C:\\Users\\Chen\\.cc-switch\\.skill-backups"
+    "primary": "C:\\Users\\Chen\\.config\\magpie\\library\\skills",
+    "mirrors": [],
+    "backup_dir": "C:\\Users\\Chen\\.config\\magpie\\.skill-backups"
   },
   "skills": {
     "gc-minimal-zine-poster-v0-3": {

@@ -9,16 +9,16 @@ description: 让从 GitHub 仓库或官网下载安装的 skill 与 Claude Code 
 
 ## 一、目录结构（本机实况）
 
-skill 在四处：
+skill 的位置（2026-11-17 起主源已迁到 magpie）：
 
 | 位置 | 角色 |
 |---|---|
-| `C:\Users\Chen\.cc-switch\skills` | **主源**，真实目录 |
-| `C:\Users\Chen\.codex\skills` | 独立副本（`~/.codex` 实为 `E:\Codex\.codex` 的软链） |
-| `C:\Users\Chen\.claude\skills` | 大多是主源的软链，少数是真实目录 |
-| `C:\Users\Chen\.workbuddy\skills` | 独立副本（WorkBuddy 专用） |
+| `C:\Users\Chen\.config\magpie\library\skills` | **主源**，magpie 库，真实目录 |
+| `C:\Users\Chen\.codex\skills` | 指向主源的软链（magpie 铺） |
+| `C:\Users\Chen\.claude\skills` | 指向主源的软链（magpie 铺） |
+| `C:\Users\Chen\.workbuddy\skills` | 指向主源的软链（magpie 铺） |
 
-另有 `C:\Users\Chen\.deepseek\skills` 等独立技能集，不在本脚本管辖范围。
+旧的 cc-switch（`C:\Users\Chen\.cc-switch\skills`）已退役并入 magpie，删除它不影响本脚本；`C:\Users\Chen\.dsh\skills` 亦全部软链到 magpie 库。
 
 Claude Code 插件在 `C:\Users\Chen\.claude\plugins`：
 
@@ -36,7 +36,7 @@ Claude Code 插件在 `C:\Users\Chen\.claude\plugins`：
 
 **本脚本不调用 `skill-sync`，是有意为之。**
 
-- `skill-sync` 管的是「**项目级** `.codex\skills` ↔ `.claude\skills`」的**双向**合并，按文件修改时间决定谁新谁赢，而且不认识 `.cc-switch`（主源）和 `.workbuddy`。
+- `skill-sync` 管的是「**项目级** `.codex\skills` ↔ `.claude\skills`」的**双向**合并，按文件修改时间决定谁新谁赢，而且不认识 magpie 库（主源）和 `.workbuddy`。
 - 本脚本走的是「**主源 → 各副本**」的单向写入，结果确定：更新完成后每个副本与主源逐字节一致。
 - 两者混用很危险：双向 mtime 合并有可能把某个**陈旧副本**按「时间更新」的理由反向覆盖刚拉新的主源，正好制造错乱。需要判断哪边该赢时，用下面的 `mirrors` 命令看事实，而不是让工具盲猜。
 
@@ -46,7 +46,7 @@ Claude Code 插件在 `C:\Users\Chen\.claude\plugins`：
 不想敲命令就双击技能目录下的 `update-skills.bat`（不带参数＝只检查）。
 
 ```bash
-cd "C:\Users\Chen\.cc-switch\skills\skill-updater"
+cd "C:\Users\Chen\.config\magpie\library\skills\skill-updater"
 
 # —— skill ——
 python scripts/skill_update.py list                   # 看来源清单和上次同步时间
